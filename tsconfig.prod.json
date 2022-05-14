@@ -4,6 +4,6 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/s3odm.ts"],
+  "include": ["src/index.ts", "src/s3odm.ts"],
   "exclude": ["node_modules", "src/test.ts"]
 }
