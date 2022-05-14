@@ -5,7 +5,7 @@ import { URLSearchParams } from 'url';
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
-export class S3ODM {
+class S3ODM {
   /**
    * Signer
    */
@@ -365,14 +365,4 @@ const createSigner = ({
   };
 };
 
-/**
- * Generate UUID from the given input string
- */
-export const toUUID = function (input: string): string {
-  return crypto
-    .createHash('sha1')
-    .update(input)
-    .digest('hex')
-    .toString()
-    .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).+$/, '$1-$2-$3-$4-$5');
-};
+export { S3ODM };
