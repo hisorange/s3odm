@@ -1,8 +1,16 @@
 {
   "name": "@hisorange/s3odm",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Lightweight S3 Object Data Model",
-  "exports": "./lib/index.js",
+  "keywords": [
+    "s3",
+    "odm",
+    "r2",
+    "lightweight",
+    "orm"
+  ],
+  "exports": "./lib/s3odm.js",
+  "types": "./lib/s3odm.d.ts",
   "repository": "https://github.com/hisorange/s3odm",
   "author": "Varga Zsolt <hello@hisorange.me>",
   "license": "GPL-3.0",
