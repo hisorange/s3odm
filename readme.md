@@ -32,22 +32,21 @@ const BUCKET = 'my-database';
 const odm = new S3ODM(ACCESS_KEY, SECRET_KEY, DOMAIN, BUCKET);
 
 (async () => {
-  const V_TABLE = 'users';
+  // Create a repository which maps the documents to a prefix within the bucket
+  const repository = odm.createRepository('users');
 
   // Create new document from POJOs
-  await odm.insert(V_TABLE, 521, {
+  await repository.insert({
     name: 'Jane Doe',
     email: 'jane@does.com',
   });
 
-  // Read the document
-  await odm.findById(V_TABLE, 521);
+  // Read a record by id
+  await repository.findById('d7205bbe-ec08-4b88-9e39-1d10ab37a065');
 
-  // Scan the bucket for object identifiers
-  const userIds = await odm.listIds(V_TABLE);
-
-  for (const userId of userIds) {
-    await odm.findById(V_TABLE, userId);
+  // Load every record with a single call
+  for (const user of await repository.findAll()) {
+    // Do smth with the user pojo
   }
 })();
 ```

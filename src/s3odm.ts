@@ -26,6 +26,10 @@ class S3ODM {
     });
   }
 
+  createRepository(vTable: string) {
+    return new Repository(this, vTable);
+  }
+
   protected async execute(
     okCode: number,
     method: HttpMethods,
@@ -86,16 +90,16 @@ class S3ODM {
   /**
    * Delete the object
    */
-  async deleteById(oid: string) {
-    return this.execute(204, 'DELETE', oid);
+  async deleteById(vTable: string, id: string) {
+    return this.execute(204, 'DELETE', `${vTable}/${id}.json`);
   }
 
   /**
    * Delete the object
    */
-  async deleteByIds(oids: string[]) {
-    const body = `<Delete>${oids
-      .map(oid => `<Object><Key>${oid}</Key></Object>`)
+  async deleteByIds(vTable: string, ids: string[]) {
+    const body = `<Delete>${ids
+      .map(id => `<Object><Key>${vTable}/${id}</Key></Object>`)
       .join('')}</Delete>`;
 
     return this.execute(200, 'POST', '?delete', body);
@@ -365,4 +369,58 @@ const createCertifier = ({
   };
 };
 
+class Repository {
+  constructor(readonly driver: S3ODM, readonly tableName: string) {}
+
+  deleteById(id: string) {
+    return this.driver!.deleteById(this.tableName, id);
+  }
+
+  async deleteAll() {
+    const ids: string[] = [];
+    await this.driver.listIds(this.tableName).then(r => ids.push(...r));
+
+    if (ids.length) {
+      await this.driver!.deleteByIds(this.tableName, ids);
+    }
+
+    return ids;
+  }
+
+  async insert(pojo: any, id?: string) {
+    if (!id) {
+      id = toUUID((Date.now() + Math.random()).toString());
+    }
+
+    return (await this.driver.insert(this.tableName, id, pojo)).json();
+  }
+
+  findById(id: string) {
+    return this.driver.findById(this.tableName, id);
+  }
+
+  async findAll() {
+    const records = [];
+    const ids: string[] = [];
+
+    await this.driver.listIds(this.tableName).then(r => ids.push(...r));
+
+    // TODO: Use batches
+    for (const id of ids) {
+      records.push(this.findById(id));
+    }
+
+    return await Promise.all(records);
+  }
+}
+
 export { S3ODM };
+
+export const toUUID = function (input: string): string {
+  return crypto
+    .createHash('sha1')
+    .update(input)
+    .digest('hex')
+    .toString()
+    .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).+$/, '$1-$2-$3-$4-$5');
+};
