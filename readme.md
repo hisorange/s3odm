@@ -51,3 +51,18 @@ const odm = new S3ODM(ACCESS_KEY, SECRET_KEY, DOMAIN, BUCKET);
   }
 })();
 ```
+
+### Ideology (Why)
+
+S3 is a key value storage, but we always think about it as a file storage (as it's intended to be one). My problem was simple, the project I was working on had to store a set of JSON documents in a persistent and reliable storage, but it could not be a traditional database because the JSON files were the descriptors for the database.
+And S3 is a perfect solution for this, you can use it as a cheap and reliable solution to manage sets of data. But of course only if the query performance is not a problem!
+
+Please don't try to create an e-commerce site with S3 as database, it will be slow and expensive for that kind of load, but if you wanna store and work with data which is not often needed but has to be available and reliable, then enjoy this repository.It will abstract the S3 finickiness away from you, and provide a super lightweight client to do so.
+
+Also I am well aware of the AWS S3 SDK library, but it is 4.08 MB at the time of writing, while this library is 9kb as it is.
+
+One more thing, don't forget to be awesome! ^.^
+
+### Versioning
+
+From 1.0.0 to 1.1.0 the library will not follow the semantic versioning, the 1.1.0 is the first semantic release.
