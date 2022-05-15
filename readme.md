@@ -1,4 +1,5 @@
 # S3 Object Data Mappper
+![S3 ODM Banner](https://user-images.githubusercontent.com/3441017/168467257-78a0448b-2a3c-426f-9c99-54b606bc7a1b.png)
 
 [![Version](https://badge.fury.io/gh/hisorange%2Fs3odm.svg)](https://badge.fury.io/gh/hisorange%2Fs3odm)
 [![Build](https://github.com/hisorange/s3odm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hisorange/s3odm/actions/workflows/ci.yml)
@@ -30,6 +31,7 @@ const odm = new S3ODM({
 
   // Create new document from POJOs
   await odm.insert('users/42.json', {
+
     email: 'example@dot.com',
   });
 })();
