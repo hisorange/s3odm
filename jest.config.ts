@@ -21,7 +21,7 @@ export default {
 
   // Coverage configuration
   collectCoverage: true,
-  coverageReporters: ['json', 'text'],
+  coverageReporters: ['json', 'text', 'lcov', 'clover'],
   collectCoverageFrom: ['./src/s3odm.ts'],
   coverageThreshold: {
     global: {
