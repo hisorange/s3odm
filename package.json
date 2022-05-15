@@ -1,6 +1,6 @@
 {
   "name": "@hisorange/s3odm",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Lightweight S3 Object Data Model",
   "keywords": [
     "s3",
