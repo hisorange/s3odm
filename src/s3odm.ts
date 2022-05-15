@@ -4,8 +4,12 @@ import fetch, { Headers, HeadersInit, RequestInit, Response } from 'node-fetch';
 import { URLSearchParams } from 'url';
 
 type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+export type Document = {
+  _id: string;
+  [key: string]: any;
+};
 
-class S3ODM {
+export class S3ODM {
   /**
    * Signer
    */
@@ -26,8 +30,10 @@ class S3ODM {
     });
   }
 
-  createRepository(vTable: string) {
-    return new Repository(this, vTable);
+  createRepository<T extends Document = Document>(
+    vTable: string,
+  ): Repository<T> {
+    return new Repository<T>(this, vTable);
   }
 
   protected async execute(
@@ -67,15 +73,23 @@ class S3ODM {
   /**
    * Get an identified object
    */
-  async findById(vTable: string, id: string) {
-    return (await this.execute(200, 'GET', `${vTable}/${id}.json`)).json();
+  async findById(vTable: string, _id: string) {
+    const document = (await (
+      await this.execute(200, 'GET', `${vTable}/${_id}.json`)
+    ).json()) as Document;
+
+    if (document && !document?._id) {
+      document._id = _id;
+    }
+
+    return document;
   }
 
   /**
    * Get an identified object
    */
-  async exists(vTable: string, id: string) {
-    return await this.execute(200, 'HEAD', `${vTable}/${id}.json`)
+  async exists(vTable: string, _id: string) {
+    return await this.execute(200, 'HEAD', `${vTable}/${_id}.json`)
       .then(r => !!r)
       .catch(() => false); // TODO: check if it's good error
   }
@@ -83,23 +97,26 @@ class S3ODM {
   /**
    * Create a new object from the given string
    */
-  async insert(vTable: string, id: string, body: any) {
-    return this.execute(200, 'PUT', `${vTable}/${id}.json`, body);
+  async insert(vTable: string, _id: string, body: any) {
+    return this.execute(200, 'PUT', `${vTable}/${_id}.json`, {
+      _id,
+      ...body,
+    });
   }
 
   /**
    * Delete the object
    */
-  async deleteById(vTable: string, id: string) {
-    return this.execute(204, 'DELETE', `${vTable}/${id}.json`);
+  async deleteById(vTable: string, _id: string) {
+    return this.execute(204, 'DELETE', `${vTable}/${_id}.json`);
   }
 
   /**
    * Delete the object
    */
-  async deleteByIds(vTable: string, ids: string[]) {
-    const body = `<Delete>${ids
-      .map(id => `<Object><Key>${vTable}/${id}</Key></Object>`)
+  async deleteByIds(vTable: string, _ids: string[]) {
+    const body = `<Delete>${_ids
+      .map(_id => `<Object><Key>${vTable}/${_id}</Key></Object>`)
       .join('')}</Delete>`;
 
     return this.execute(200, 'POST', '?delete', body);
@@ -111,7 +128,7 @@ class S3ODM {
   async listIds(vTable: string): Promise<string[]> {
     const chunkSize = 1000;
 
-    const oids: string[] = [];
+    const _ids: string[] = [];
     let marker: string | false = false;
     const params = new URLSearchParams();
     const encoder = new TextEncoder();
@@ -149,7 +166,7 @@ class S3ODM {
             matches++;
 
             if (chunk.text !== vTable) {
-              oids.push(
+              _ids.push(
                 chunk.text.substring(vTable.length).replace(/\.json$/, ''),
               );
               marker = chunk.text;
@@ -166,7 +183,7 @@ class S3ODM {
       }
     } while (chunkSize === matches); // TODO: not the best implementation, it can give less, but need to do a second row check
 
-    return oids;
+    return _ids;
   }
 }
 
@@ -369,52 +386,91 @@ const createCertifier = ({
   };
 };
 
-class Repository {
+/**
+ * Repository for managing the document actions.
+ */
+class Repository<D extends Document = Document> {
   constructor(readonly driver: S3ODM, readonly tableName: string) {}
 
-  deleteById(id: string) {
-    return this.driver!.deleteById(this.tableName, id);
+  /**
+   * Delete a record from the table by it's identifier.
+   */
+  async deleteById(_id: string) {
+    return (await this.driver.deleteById(this.tableName, _id)).json();
   }
 
-  async deleteAll() {
-    const ids: string[] = [];
-    await this.driver.listIds(this.tableName).then(r => ids.push(...r));
+  /**
+   * Delete every record from the table.
+   */
+  async deleteAll(): Promise<string[]> {
+    const _ids: string[] = await this.driver.listIds(this.tableName);
 
-    if (ids.length) {
-      await this.driver!.deleteByIds(this.tableName, ids);
+    if (_ids.length) {
+      await this.driver.deleteByIds(this.tableName, _ids);
     }
 
-    return ids;
+    return _ids ?? [];
   }
 
-  async insert(pojo: any, id?: string) {
-    if (!id) {
-      id = toUUID((Date.now() + Math.random()).toString());
+  /**
+   * Create a new record in the table.
+   * Generates a UUID for the record if none is provided.
+   */
+  async insert(document: Partial<D>, _id?: string): Promise<D> {
+    if (!_id) {
+      if (document?._id) {
+        _id = document._id;
+      } else {
+        _id = toUUID((Date.now() + Math.random()).toString());
+      }
     }
 
-    return (await this.driver.insert(this.tableName, id, pojo)).json();
+    return (await (
+      await this.driver.insert(this.tableName, _id, document)
+    ).json()) as D;
   }
 
-  findById(id: string) {
-    return this.driver.findById(this.tableName, id);
-  }
-
-  async findAll() {
-    const records = [];
-    const ids: string[] = [];
-
-    await this.driver.listIds(this.tableName).then(r => ids.push(...r));
-
-    // TODO: Use batches
-    for (const id of ids) {
-      records.push(this.findById(id));
+  /**
+   * Update an existing record in the table.
+   */
+  async update(document: D, _id?: string): Promise<D> {
+    if (!_id) {
+      _id = document._id;
     }
 
-    return await Promise.all(records);
+    if (!(await this.driver.exists(this.tableName, _id))) {
+      throw new Error(`Record with id ${_id} does not exist`);
+    }
+
+    return (await (
+      await this.driver.insert(this.tableName, _id, document)
+    ).json()) as D;
+  }
+
+  /**
+   * Find a record by it's identifier.
+   */
+  async findById(_id: string): Promise<D | null> {
+    try {
+      return (await this.driver.findById(this.tableName, _id)) as D;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Find all records in the table.
+   */
+  async findAll(): Promise<D[]> {
+    const documents = [];
+
+    for (const id of await this.driver.listIds(this.tableName)) {
+      documents.push(this.findById(id));
+    }
+
+    return (await Promise.all(documents)).filter(Boolean) as D[];
   }
 }
-
-export { S3ODM };
 
 export const toUUID = function (input: string): string {
   return crypto

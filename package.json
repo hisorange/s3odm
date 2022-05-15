@@ -36,7 +36,7 @@
     "build:prod": "tsc -p tsconfig.prod.json",
     "test": "jest --coverage=0 --verbose --silent=0",
     "test:ci": "jest --runInBand",
-    "dev": "node --experimental-specifier-resolution=node --no-warnings --loader ts-node/esm src/test.ts"
+    "dev": "node --experimental-specifier-resolution=node --no-warnings --loader ts-node/esm src/dev.ts"
   },
   "dependencies": {
     "html-rewriter-wasm": "^0.4.1",

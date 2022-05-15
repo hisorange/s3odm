@@ -19,6 +19,7 @@ describe('Repository', () => {
     expect(repository).toHaveProperty('deleteById');
     expect(repository).toHaveProperty('deleteAll');
     expect(repository).toHaveProperty('insert');
+    expect(repository).toHaveProperty('update');
     expect(repository).toHaveProperty('findAll');
   });
 });

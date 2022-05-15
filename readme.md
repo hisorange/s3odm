@@ -23,34 +23,49 @@ npm i @hisorange/s3odm
 ## Example Usage
 
 ```typescript
-import { S3ODM } from '@hisorange/s3odm';
+import { S3ODM, Document } from '@hisorange/s3odm';
 
 const ACCESS_KEY = 'XXXXX';
 const SECRET_KEY = 'XXXXY';
 const DOMAIN = '994b72fa8e67bc4167137357a2dd8763.r2.cloudflarestorage.com';
 const BUCKET = 'my-database';
 
+type User = {
+  name: string;
+  email: string;
+  lastSeenAt: number;
+} & Document;
+
 const odm = new S3ODM(ACCESS_KEY, SECRET_KEY, DOMAIN, BUCKET);
 
 (async () => {
   // Create a repository which maps the documents to a prefix within the bucket
-  const repository = odm.createRepository('users');
+  const repository = odm.createRepository<User>('users');
 
   // Create new document from POJOs
   await repository.insert({
+    _id: 'd7205bbe-ec08-4b88-9e39-1d10ab37a065',
     name: 'Jane Doe',
     email: 'jane@does.com',
   });
 
-  // Read a record by id
+  // Read a record by _id property
   await repository.findById('d7205bbe-ec08-4b88-9e39-1d10ab37a065');
 
   // Load every record with a single call
   for (const user of await repository.findAll()) {
-    // Do smth with the user pojo
+    // Update existing records
+    repository.update({
+      ...user,
+      lastSeenAt: Date.now(),
+    });
   }
 })();
 ```
+
+### Magic _\_id_ property
+
+Each document gets an _\_id_ property assigned on read / write time, the identifier is the same as the document's path name without the table as prefix.
 
 ### Ideology (Why)
 
