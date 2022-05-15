@@ -6,7 +6,7 @@
     "s3",
     "odm",
     "r2",
-    "lightweight",
+    "light weight",
     "orm"
   ],
   "exports": "./lib/s3odm.js",
@@ -19,6 +19,9 @@
   "files": [
     "lib/"
   ],
+  "entrypoints": {
+    "s3odm": "./lib/s3odm.js"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -26,8 +29,11 @@
     "node": ">=14.16.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.prod.json",
-    "test": "node --experimental-specifier-resolution=node --no-warnings --loader ts-node/esm src/test.ts"
+    "build": "tsc -p tsconfig.json",
+    "build:prod": "tsc -p tsconfig.prod.json",
+    "test": "echo 1",
+    "test:ci": "echo 1",
+    "dev": "node --experimental-specifier-resolution=node --no-warnings --loader ts-node/esm src/test.ts"
   },
   "dependencies": {
     "html-rewriter-wasm": "^0.4.1",
