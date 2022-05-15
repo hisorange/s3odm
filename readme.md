@@ -4,6 +4,7 @@
 
 [![Version](https://badge.fury.io/gh/hisorange%2Fs3odm.svg)](https://badge.fury.io/gh/hisorange%2Fs3odm)
 [![Build](https://github.com/hisorange/s3odm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hisorange/s3odm/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/hisorange/s3odm/badge.svg?branch=main)](https://coveralls.io/github/hisorange/s3odm?branch=main)
 [![NPM](https://img.shields.io/npm/dt/@hisorange/s3odm?label=NPM)](https://www.npmjs.com/package/@hisorange/s3odm)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/hisorange/s3odm)](https://github.com/hisorange/s3odm/commits/main)
 [![GitHub License](https://img.shields.io/github/license/hisorange/s3odm)](https://github.com/hisorange/s3odm/blob/main/LICENSE)
