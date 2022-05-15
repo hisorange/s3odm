@@ -15,26 +15,24 @@ class S3ODM {
    * Initialize the S3ODM instance
    */
   constructor(
-    readonly config: {
-      accessKey: string;
-      secretKey: string;
-      hostname: string;
-      bucket: string;
-    },
+    accessKey: string,
+    secretKey: string,
+    readonly hostname: string,
+    readonly bucket: string,
   ) {
     this.certify = createCertifier({
-      accessKey: config.accessKey,
-      secretKey: config.secretKey,
+      accessKey,
+      secretKey,
     });
   }
 
   protected async execute(
     okCode: number,
     method: HttpMethods,
-    path: string,
+    vTable: string,
     body?: string | ArrayBuffer,
   ): Promise<Response> {
-    const url = `https://${this.config.hostname}/${this.config.bucket}/${path}`;
+    const url = `https://${this.hostname}/${this.bucket}/${vTable}`;
 
     const request = await this.certify({
       method,
@@ -65,15 +63,15 @@ class S3ODM {
   /**
    * Get an identified object
    */
-  async findById(oid: string) {
-    return this.execute(200, 'GET', oid);
+  async findById(vTable: string, id: string) {
+    return (await this.execute(200, 'GET', `${vTable}/${id}.json`)).json();
   }
 
   /**
    * Get an identified object
    */
-  async exists(oid: string) {
-    return await this.execute(200, 'HEAD', oid)
+  async exists(vTable: string, id: string) {
+    return await this.execute(200, 'HEAD', `${vTable}/${id}.json`)
       .then(r => !!r)
       .catch(() => false); // TODO: check if it's good error
   }
@@ -81,8 +79,8 @@ class S3ODM {
   /**
    * Create a new object from the given string
    */
-  async insert(oid: string, body: string) {
-    return this.execute(200, 'PUT', oid, body);
+  async insert(vTable: string, id: string, body: any) {
+    return this.execute(200, 'PUT', `${vTable}/${id}.json`, body);
   }
 
   /**
@@ -106,7 +104,7 @@ class S3ODM {
   /**
    * Scan a bucket with the prefix for IDs
    */
-  async findAll(vTable: string): Promise<string[]> {
+  async listIds(vTable: string): Promise<string[]> {
     const chunkSize = 1000;
 
     const oids: string[] = [];
@@ -147,7 +145,9 @@ class S3ODM {
             matches++;
 
             if (chunk.text !== vTable) {
-              oids.push(chunk.text);
+              oids.push(
+                chunk.text.substring(vTable.length).replace(/\.json$/, ''),
+              );
               marker = chunk.text;
             }
           }
