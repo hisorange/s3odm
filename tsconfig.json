@@ -2,6 +2,7 @@
   "compilerOptions": {
     "outDir": "lib",
     "noEmit": false,
+    "allowJs": true,
     "declaration": true,
     "sourceMap": true,
     "noEmitOnError": true,
@@ -13,8 +14,11 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node", "jest"],
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["src"],
+  "include": ["src/*.ts", "test/s3odm.test.ts"],
   "exclude": ["node_modules"]
 }

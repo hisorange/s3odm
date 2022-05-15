@@ -130,4 +130,4 @@ lib/
 
 _json_key.json
 
-src/test.ts
+src/dev.ts

@@ -47,6 +47,11 @@ jobs:
       - name: Test
         run: yarn test:ci
 
+      - name: Collect coverage
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
     outputs:
       commit_message: ${{ env.GIT_COMMIT_MESSAGE_SUBJECT }}
 
