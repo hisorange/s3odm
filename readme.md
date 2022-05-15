@@ -14,25 +14,30 @@ It's main goal to provide a non bloated way to interact with S3 buckets.
 ```typescript
 import { S3ODM } from '@hisorange/s3odm';
 
-const odm = new S3ODM({
-  accessKey: 'XXXX',
-  secretKey: 'XXXX',
-  hostname: '994b72fa8e67bc4167137357a2dd8763.r2.cloudflarestorage.com',
-  bucket: 'my-bucket',
-});
+const ACCESS_KEY = 'XXXXX';
+const SECRET_KEY = 'XXXXY';
+const DOMAIN = '994b72fa8e67bc4167137357a2dd8763.r2.cloudflarestorage.com';
+const BUCKET = 'my-database';
+
+const odm = new S3ODM(ACCESS_KEY, SECRET_KEY, DOMAIN, BUCKET);
 
 (async () => {
-  // Scan the bucket for object identifiers
-  const userIds = await odm.findAll('users');
-
-  for (const userId of userIds) {
-    // Fetch the document by it's identifier
-    writeFileSync(basename(userId), await (await odm.findById(userId)).json());
-  }
+  const V_TABLE = 'users';
 
   // Create new document from POJOs
-  await odm.insert('users/42.json', {
-    email: 'example@dot.com',
+  await odm.insert(V_TABLE, 521, {
+    name: 'Jane Doe',
+    email: 'jane@does.com',
   });
+
+  // Read the document
+  await odm.findById(V_TABLE, 521);
+
+  // Scan the bucket for object identifiers
+  const userIds = await odm.listIds(V_TABLE);
+
+  for (const userId of userIds) {
+    await odm.findById(V_TABLE, userId);
+  }
 })();
 ```
