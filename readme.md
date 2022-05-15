@@ -2,7 +2,6 @@
 
 [![Version](https://badge.fury.io/gh/hisorange%2Fs3odm.svg)](https://badge.fury.io/gh/hisorange%2Fs3odm)
 [![Build](https://github.com/hisorange/s3odm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hisorange/s3odm/actions/workflows/ci.yml)
-
 [![NPM](https://img.shields.io/npm/dt/@hisorange/s3odm?label=NPM)](https://www.npmjs.com/package/@hisorange/s3odm)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/hisorange/s3odm)](https://github.com/hisorange/s3odm/commits/main)
 [![GitHub License](https://img.shields.io/github/license/hisorange/s3odm)](https://github.com/hisorange/s3odm/blob/main/LICENSE)
@@ -21,13 +20,16 @@ const odm = new S3ODM({
 });
 
 (async () => {
-  const users = await odm.scanObjects('users');
+  // Scan the bucket for object identifiers
+  const userIds = await odm.findAll('users');
 
-  for (const usr of users) {
-    writeFileSync(basename(usr), await (await odm.getObject(usr)).json());
+  for (const userId of userIds) {
+    // Fetch the document by it's identifier
+    writeFileSync(basename(userId), await (await odm.findById(userId)).json());
   }
 
-  await odm.setObject('users/42.json', {
+  // Create new document from POJOs
+  await odm.insert('users/42.json', {
     email: 'example@dot.com',
   });
 })();

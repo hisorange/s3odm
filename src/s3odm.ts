@@ -3,13 +3,13 @@ import { HTMLRewriter } from 'html-rewriter-wasm';
 import fetch, { Headers, HeadersInit, RequestInit, Response } from 'node-fetch';
 import { URLSearchParams } from 'url';
 
-type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
 class S3ODM {
   /**
    * Signer
    */
-  protected sign: ReturnType<typeof createSigner>;
+  protected certify: ReturnType<typeof createCertifier>;
 
   /**
    * Initialize the S3ODM instance
@@ -22,21 +22,21 @@ class S3ODM {
       bucket: string;
     },
   ) {
-    this.sign = createSigner({
+    this.certify = createCertifier({
       accessKey: config.accessKey,
       secretKey: config.secretKey,
     });
   }
 
-  protected async exec(
+  protected async execute(
     okCode: number,
-    method: Method,
+    method: HttpMethods,
     path: string,
     body?: string | ArrayBuffer,
   ): Promise<Response> {
     const url = `https://${this.config.hostname}/${this.config.bucket}/${path}`;
 
-    const request = await this.sign({
+    const request = await this.certify({
       method,
       url,
       body,
@@ -65,15 +65,15 @@ class S3ODM {
   /**
    * Get an identified object
    */
-  async getObject(oid: string) {
-    return this.exec(200, 'GET', oid);
+  async findById(oid: string) {
+    return this.execute(200, 'GET', oid);
   }
 
   /**
    * Get an identified object
    */
-  async hasObject(oid: string) {
-    return await this.exec(200, 'HEAD', oid)
+  async exists(oid: string) {
+    return await this.execute(200, 'HEAD', oid)
       .then(r => !!r)
       .catch(() => false); // TODO: check if it's good error
   }
@@ -81,32 +81,32 @@ class S3ODM {
   /**
    * Create a new object from the given string
    */
-  async setObject(oid: string, body: string) {
-    return this.exec(200, 'PUT', oid, body);
+  async insert(oid: string, body: string) {
+    return this.execute(200, 'PUT', oid, body);
   }
 
   /**
    * Delete the object
    */
-  async deleteObject(oid: string) {
-    return this.exec(204, 'DELETE', oid);
+  async deleteById(oid: string) {
+    return this.execute(204, 'DELETE', oid);
   }
 
   /**
    * Delete the object
    */
-  async deleteObjects(oids: string[]) {
+  async deleteByIds(oids: string[]) {
     const body = `<Delete>${oids
       .map(oid => `<Object><Key>${oid}</Key></Object>`)
       .join('')}</Delete>`;
 
-    return this.exec(200, 'POST', '?delete', body);
+    return this.execute(200, 'POST', '?delete', body);
   }
 
   /**
    * Scan a bucket with the prefix for IDs
    */
-  async scanObjects(prefix: string): Promise<string[]> {
+  async findAll(vTable: string): Promise<string[]> {
     const chunkSize = 1000;
 
     const oids: string[] = [];
@@ -115,15 +115,15 @@ class S3ODM {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    if (!prefix.match(/\/$/)) {
-      prefix += '/';
+    if (!vTable.match(/\/$/)) {
+      vTable += '/';
     }
 
     //params.set('delimiter', '/');
     //params.set('encoding-type', 'url');
     params.set('list-type', '2');
     params.set('max-keys', chunkSize.toString());
-    params.set('prefix', prefix);
+    params.set('prefix', vTable);
 
     let matches = 0;
 
@@ -132,7 +132,7 @@ class S3ODM {
         params.set('start-after', marker);
       }
 
-      const reply = await this.exec(200, 'GET', '?' + params.toString());
+      const reply = await this.execute(200, 'GET', '?' + params.toString());
       const xml = await reply.text();
       matches = 0;
 
@@ -146,7 +146,7 @@ class S3ODM {
           if (chunk.text) {
             matches++;
 
-            if (chunk.text !== prefix) {
+            if (chunk.text !== vTable) {
               oids.push(chunk.text);
               marker = chunk.text;
             }
@@ -169,7 +169,7 @@ class S3ODM {
 /**
  * Create an URL signer function
  */
-const createSigner = ({
+const createCertifier = ({
   accessKey,
   secretKey,
 }: {
@@ -232,7 +232,7 @@ const createSigner = ({
     baseHeaders,
     body,
   }: {
-    method: Method;
+    method: HttpMethods;
     url: string;
     baseHeaders?: HeadersInit;
     body?: BodyInit | null;
