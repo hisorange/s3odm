@@ -11,6 +11,16 @@
 Just a super light weight "client", currently only implements a handful of interactions.
 It's main goal to provide a non bloated way to interact with S3 buckets.
 
+## Getting Started
+
+```sh
+yarn add @hisorange/s3odm
+# Or
+npm i @hisorange/s3odm
+```
+
+## Example Usage
+
 ```typescript
 import { S3ODM } from '@hisorange/s3odm';
 
