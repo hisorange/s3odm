@@ -1,9 +1,16 @@
-import crypto from 'crypto';
+import { createHash, webcrypto } from 'crypto';
 import { HTMLRewriter } from 'html-rewriter-wasm';
 import fetch, { Headers, HeadersInit, RequestInit, Response } from 'node-fetch';
 import { URLSearchParams } from 'url';
 
+class HttpException extends Error {
+  constructor(readonly code: number) {
+    super(`HTTP Error ${code}`);
+  }
+}
+
 type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+
 export type Document = {
   _id: string;
   [key: string]: any;
@@ -11,7 +18,7 @@ export type Document = {
 
 export class S3ODM {
   /**
-   * Signer
+   * Certifier instance
    */
   protected certify: ReturnType<typeof createCertifier>;
 
@@ -23,10 +30,12 @@ export class S3ODM {
     secretKey: string,
     readonly hostname: string,
     readonly bucket: string,
+    region: string = 'auto',
   ) {
     this.certify = createCertifier({
       accessKey,
       secretKey,
+      _region: region,
     });
   }
 
@@ -40,7 +49,7 @@ export class S3ODM {
     okCode: number,
     method: HttpMethods,
     vTable: string,
-    body?: string | ArrayBuffer,
+    body?: string,
   ): Promise<Response> {
     const url = `https://${this.hostname}/${this.bucket}/${vTable}`;
 
@@ -50,58 +59,60 @@ export class S3ODM {
       body,
     });
 
-    try {
-      const reply = await fetch(url, request as any);
+    const reply = await fetch(url, request as any);
 
-      switch (reply.status) {
-        case okCode:
-          return reply;
-        case 403:
-          throw new Error('Invalid authentication');
-        case 404:
-          throw new Error('Document does not exists');
-        case 409:
-          throw new Error('Conflicting input: ' + (await reply.text()));
-        default:
-          throw new Error(`Unhandled status [${reply.status}]`);
+    if (reply.status === okCode) {
+      return reply;
+    }
+
+    throw new HttpException(reply.status);
+  }
+
+  /**
+   * Fetch a JSON object by its identifier
+   */
+  async findById(vTable: string, _id: string): Promise<Document | null> {
+    try {
+      const document = (await (
+        await this.execute(200, 'GET', `${vTable}/${_id}.json`)
+      ).json()) as Document;
+
+      if (document && !document?._id) {
+        document._id = _id;
       }
+
+      return document;
     } catch (error) {
+      // Missing document, handle simply by returning a null
+      if (error instanceof HttpException && error.code === 404) {
+        return null;
+      }
+
       throw error;
     }
   }
 
   /**
-   * Get an identified object
+   * Check if the given object exists with the given identifier
    */
-  async findById(vTable: string, _id: string) {
-    const document = (await (
-      await this.execute(200, 'GET', `${vTable}/${_id}.json`)
-    ).json()) as Document;
-
-    if (document && !document?._id) {
-      document._id = _id;
-    }
-
-    return document;
-  }
-
-  /**
-   * Get an identified object
-   */
-  async exists(vTable: string, _id: string) {
+  async exists(vTable: string, _id: string): Promise<boolean> {
     return await this.execute(200, 'HEAD', `${vTable}/${_id}.json`)
       .then(r => !!r)
-      .catch(() => false); // TODO: check if it's good error
+      .catch(() => false);
   }
 
   /**
-   * Create a new object from the given string
+   * Create a new object
    */
-  async insert(vTable: string, _id: string, body: any) {
-    return this.execute(200, 'PUT', `${vTable}/${_id}.json`, {
-      _id,
-      ...body,
-    });
+  async insert(vTable: string, document: Document): Promise<Document> {
+    return (await (
+      await this.execute(
+        200,
+        'PUT',
+        `${vTable}/${document._id}.json`,
+        JSON.stringify(document),
+      )
+    ).json()) as Document;
   }
 
   /**
@@ -187,16 +198,27 @@ export class S3ODM {
   }
 }
 
+type ICertifierConfig = {
+  accessKey: string;
+  secretKey: string;
+  _region: string;
+};
+
+type ICertifierInput = {
+  method: HttpMethods;
+  url: string;
+  baseHeaders?: HeadersInit;
+  body?: BodyInit | null;
+};
+
 /**
  * Create an URL signer function
  */
 const createCertifier = ({
   accessKey,
   secretKey,
-}: {
-  accessKey: string;
-  secretKey: string;
-}) => {
+  _region,
+}: ICertifierConfig) => {
   const encoder = new TextEncoder();
   const cache = new Map<string, ArrayBuffer>();
   const UNSIGNABLE_HEADERS = [
@@ -218,7 +240,7 @@ const createCertifier = ({
   };
 
   const sha256encode = async (content: any) => {
-    return (crypto.webcrypto as any).subtle.digest(
+    return (webcrypto as any).subtle.digest(
       'SHA-256',
       typeof content === 'string' ? encoder.encode(content) : content,
     );
@@ -232,7 +254,7 @@ const createCertifier = ({
   };
 
   const createHMAC = async (key: string | ArrayBuffer, string: string) => {
-    const cryptoKey = await (crypto.webcrypto as any).subtle.importKey(
+    const cryptoKey = await (webcrypto as any).subtle.importKey(
       'raw',
       typeof key === 'string' ? encoder.encode(key) : key,
       { name: 'HMAC', hash: { name: 'SHA-256' } },
@@ -240,7 +262,7 @@ const createCertifier = ({
       ['sign'],
     );
 
-    return (crypto.webcrypto as any).subtle.sign(
+    return (webcrypto as any).subtle.sign(
       'HMAC',
       cryptoKey,
       encoder.encode(string),
@@ -252,20 +274,14 @@ const createCertifier = ({
     url,
     baseHeaders,
     body,
-  }: {
-    method: HttpMethods;
-    url: string;
-    baseHeaders?: HeadersInit;
-    body?: BodyInit | null;
-  }): Promise<RequestInit> => {
+  }: ICertifierInput): Promise<RequestInit> => {
     const SERVICE = 's3';
-    const REGION = 'auto';
 
     const urlObject = new URL(url);
     const headers = new Headers(baseHeaders || {});
     const datetime = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
 
-    headers.delete('Host'); // Can't be set in insecure env anyway
+    headers.delete('Host');
 
     if (!headers.has('X-Amz-Content-Sha256')) {
       headers.set('X-Amz-Content-Sha256', 'UNSIGNED-PAYLOAD');
@@ -291,7 +307,7 @@ const createCertifier = ({
       .join('\n');
 
     const _datestr = datetime.slice(0, 8);
-    const credentialString = [_datestr, REGION, SERVICE, 'aws4_request'].join(
+    const credentialString = [_datestr, _region, SERVICE, 'aws4_request'].join(
       '/',
     );
 
@@ -322,13 +338,13 @@ const createCertifier = ({
       .map(pair => pair.join('='))
       .join('&');
 
-    const cacheKey = [secretKey, _datestr, REGION, SERVICE].join();
+    const cacheKey = [secretKey, _datestr, _region, SERVICE].join();
 
     let kCredentials = cache.get(cacheKey);
 
     if (!kCredentials) {
       const kDate = await createHMAC('AWS4' + secretKey, _datestr);
-      const region = await createHMAC(kDate, REGION);
+      const region = await createHMAC(kDate, _region);
       const kService = await createHMAC(region, SERVICE);
       kCredentials = await createHMAC(kService, 'aws4_request');
 
@@ -416,34 +432,31 @@ class Repository<D extends Document = Document> {
    * Create a new record in the table.
    * Generates a UUID for the record if none is provided.
    */
-  async insert(document: Partial<D>, _id?: string): Promise<D> {
-    if (!_id) {
-      if (document?._id) {
-        _id = document._id;
-      } else {
-        _id = toUUID((Date.now() + Math.random()).toString());
-      }
+  async insert(document: D | Omit<D, '_id'>): Promise<D> {
+    // Generate a random UUID if none is provided
+    if (!document?._id) {
+      document._id = toUUID((Date.now() + Math.random()).toString());
+    }
+
+    if (!(await this.driver.exists(this.tableName, document._id))) {
+      throw new Error(`Record with id ${document._id} already exists`);
     }
 
     return (await (
-      await this.driver.insert(this.tableName, _id, document)
+      await this.driver.insert(this.tableName, document as Document)
     ).json()) as D;
   }
 
   /**
    * Update an existing record in the table.
    */
-  async update(document: D, _id?: string): Promise<D> {
-    if (!_id) {
-      _id = document._id;
-    }
-
-    if (!(await this.driver.exists(this.tableName, _id))) {
-      throw new Error(`Record with id ${_id} does not exist`);
+  async update(document: D): Promise<D> {
+    if (!(await this.driver.exists(this.tableName, document._id))) {
+      throw new Error(`Record with id ${document._id} does not exist`);
     }
 
     return (await (
-      await this.driver.insert(this.tableName, _id, document)
+      await this.driver.insert(this.tableName, document)
     ).json()) as D;
   }
 
@@ -472,11 +485,9 @@ class Repository<D extends Document = Document> {
   }
 }
 
-export const toUUID = function (input: string): string {
-  return crypto
-    .createHash('sha1')
+export const toUUID = (input: string): string =>
+  createHash('sha1')
     .update(input)
     .digest('hex')
     .toString()
     .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).+$/, '$1-$2-$3-$4-$5');
-};

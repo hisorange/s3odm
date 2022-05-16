@@ -2,8 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": false,
+    "removeComments": true,
+    "pretty": false
   },
   "include": ["src/s3odm.ts"],
-  "exclude": ["node_modules", "src/dev.ts", "src/s3odm.test.ts"]
+  "exclude": ["node_modules", "src/dev.ts", "test"]
 }
