@@ -43,14 +43,13 @@ const odm = new S3ODM(ACCESS_KEY, SECRET_KEY, DOMAIN, BUCKET);
   const repository = odm.createRepository<User>('users');
 
   // Create new document from POJOs
-  await repository.insert({
-    _id: 'd7205bbe-ec08-4b88-9e39-1d10ab37a065',
+  const doc = await repository.insert({
     name: 'Jane Doe',
     email: 'jane@does.com',
   });
 
   // Read a record by _id property
-  await repository.findById('d7205bbe-ec08-4b88-9e39-1d10ab37a065');
+  await repository.findById(doc._id);
 
   // Load every record with a single call
   for (const user of await repository.findAll()) {
