@@ -11,10 +11,10 @@ class HttpException extends Error {
 
 type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
-export type Document = {
+export interface Document {
+  [key: string]: string | null | number | Array<unknown> | boolean | object;
   _id: string;
-  [key: string]: any;
-};
+}
 
 export class S3ODM {
   /**
@@ -438,13 +438,14 @@ export class Repository<D extends Document = Document> {
       document._id = toUUID((Date.now() + Math.random()).toString());
     }
 
-    if (!(await this.driver.exists(this.tableName, document._id))) {
+    if (!(await this.driver.exists(this.tableName, document._id as string))) {
       throw new Error(`Record with id ${document._id} already exists`);
     }
 
-    return (await (
-      await this.driver.insert(this.tableName, document as Document)
-    ).json()) as D;
+    return (await this.driver.insert(
+      this.tableName,
+      document as Document,
+    )) as D;
   }
 
   /**
@@ -455,9 +456,7 @@ export class Repository<D extends Document = Document> {
       throw new Error(`Record with id ${document._id} does not exist`);
     }
 
-    return (await (
-      await this.driver.insert(this.tableName, document)
-    ).json()) as D;
+    return (await this.driver.insert(this.tableName, document)) as D;
   }
 
   /**
