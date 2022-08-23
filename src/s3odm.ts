@@ -405,7 +405,7 @@ const createCertifier = ({
 /**
  * Repository for managing the document actions.
  */
-class Repository<D extends Document = Document> {
+export class Repository<D extends Document = Document> {
   constructor(readonly driver: S3ODM, readonly tableName: string) {}
 
   /**
