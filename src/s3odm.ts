@@ -105,14 +105,14 @@ export class S3ODM {
    * Create a new object
    */
   async insert(vTable: string, document: Document): Promise<Document> {
-    return (await (
-      await this.execute(
-        200,
-        'PUT',
-        `${vTable}/${document._id}.json`,
-        JSON.stringify(document),
-      )
-    ).json()) as Document;
+    await this.execute(
+      200,
+      'PUT',
+      `${vTable}/${document._id}.json`,
+      JSON.stringify(document),
+    );
+
+    return document;
   }
 
   /**
