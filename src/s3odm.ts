@@ -438,8 +438,8 @@ export class Repository<D extends Document = Document> {
       document._id = toUUID((Date.now() + Math.random()).toString());
     }
 
-    if (!(await this.driver.exists(this.tableName, document._id as string))) {
-      throw new Error(`Record with id ${document._id} already exists`);
+    if (await this.driver.exists(this.tableName, document._id as string)) {
+      throw new Error(`Record with _id [${document._id}] already exists`);
     }
 
     return (await this.driver.insert(
@@ -453,7 +453,7 @@ export class Repository<D extends Document = Document> {
    */
   async update(document: D): Promise<D> {
     if (!(await this.driver.exists(this.tableName, document._id))) {
-      throw new Error(`Record with id ${document._id} does not exist`);
+      throw new Error(`Record with _id [${document._id}] does not exist`);
     }
 
     return (await this.driver.insert(this.tableName, document)) as D;
