@@ -167,7 +167,7 @@ export class S3ODM {
       matches = 0;
 
       let output = '';
-      const rewriter = new HTMLRewriter(outputChunk => {
+      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {
         output += decoder.decode(outputChunk);
       });
 
@@ -195,6 +195,62 @@ export class S3ODM {
     } while (chunkSize === matches); // TODO: not the best implementation, it can give less, but need to do a second row check
 
     return _ids;
+  }
+
+  /**
+   * Scan a bucket for prefixes
+   */
+  async listTables(): Promise<string[]> {
+    const chunkSize = 1000;
+
+    const _tables: string[] = [];
+    let marker: string | false = false;
+    const params = new URLSearchParams();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    params.set('list-type', '2');
+    params.set('max-keys', chunkSize.toString());
+    params.set('prefix', '');
+    params.set('delimiter', '/');
+
+    let matches = 0;
+
+    do {
+      if (marker) {
+        params.set('start-after', marker);
+      }
+
+      const reply = await this.execute(200, 'GET', '?' + params.toString());
+      const xml = await reply.text();
+      matches = 0;
+
+      let output = '';
+      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {
+        output += decoder.decode(outputChunk);
+      });
+
+      rewriter.on('key', {
+        text(chunk) {
+          if (chunk.text) {
+            matches++;
+
+            _tables.push(chunk.text.replace(/\/$/, ''));
+
+            marker = chunk.text;
+          }
+        },
+      });
+
+      try {
+        await rewriter.write(encoder.encode(xml));
+        await rewriter.end();
+      } finally {
+        rewriter.free(); // Remember to free memory
+      }
+    } while (chunkSize === matches);
+
+    return _tables;
   }
 }
 
