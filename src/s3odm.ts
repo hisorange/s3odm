@@ -230,7 +230,7 @@ export class S3ODM {
         output += decoder.decode(outputChunk);
       });
 
-      rewriter.on('key', {
+      rewriter.on('Prefix', {
         text(chunk) {
           if (chunk.text) {
             matches++;
