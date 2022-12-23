@@ -136,7 +136,7 @@ export class S3ODM {
   /**
    * Scan a bucket with the prefix for IDs
    */
-  async listIds(vTable: string): Promise<string[]> {
+  async listIds(vTable: string, limit: number = -1): Promise<string[]> {
     const chunkSize = 1000;
 
     const _ids: string[] = [];
@@ -192,6 +192,10 @@ export class S3ODM {
       } finally {
         rewriter.free(); // Remember to free memory
       }
+
+      if (limit > 0 && _ids.length >= limit) {
+        return _ids;
+      }
     } while (chunkSize === matches); // TODO: not the best implementation, it can give less, but need to do a second row check
 
     return _ids;
@@ -200,7 +204,7 @@ export class S3ODM {
   /**
    * Scan a bucket for prefixes
    */
-  async listTables(): Promise<string[]> {
+  async listTables(limit: number = -1): Promise<string[]> {
     const chunkSize = 1000;
 
     const _tables: string[] = [];
@@ -247,6 +251,11 @@ export class S3ODM {
         await rewriter.end();
       } finally {
         rewriter.free(); // Remember to free memory
+      }
+
+      // Limit the number of tables
+      if (limit > 0 && _tables.length >= limit) {
+        break;
       }
     } while (chunkSize === matches);
 
@@ -529,10 +538,10 @@ export class Repository<D extends Document = Document> {
   /**
    * Find all records in the table.
    */
-  async findAll(): Promise<D[]> {
+  async findAll(limit: number = -1): Promise<D[]> {
     const documents = [];
 
-    for (const id of await this.driver.listIds(this.tableName)) {
+    for (const id of await this.driver.listIds(this.tableName, limit)) {
       documents.push(this.findById(id));
     }
 
