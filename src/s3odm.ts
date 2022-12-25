@@ -9,11 +9,42 @@ class HttpException extends Error {
   }
 }
 
+const UNSIGNABLE_HEADERS = [
+  'authorization',
+  'content-type',
+  'content-length',
+  'user-agent',
+  'presigned-expires',
+  'expect',
+  'x-amzn-trace-id',
+  'range',
+  'connection',
+];
+
+const encodeRFC3986 = (urlEncodedStr: string) => {
+  return urlEncodedStr.replace(
+    /[!'()*]/g,
+    c => '%' + c.charCodeAt(0).toString(16).toUpperCase(),
+  );
+};
+
+const buff2hex = (buffer: ArrayBuffer) => {
+  return Array.prototype.map
+    .call(new Uint8Array(buffer), x => ('0' + x.toString(16)).slice(-2))
+    .join('');
+};
+
 type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
 export interface Document {
   [key: string]: string | null | number | Array<unknown> | boolean | object;
   _id: string;
+}
+
+export interface IConfig {
+  request: {
+    timeout: number;
+  };
 }
 
 export class S3ODM {
@@ -31,6 +62,11 @@ export class S3ODM {
     readonly hostname: string,
     readonly bucket: string,
     region: string = 'auto',
+    readonly config: IConfig = {
+      request: {
+        timeout: 20_000,
+      },
+    },
   ) {
     this.certify = createCertifier({
       accessKey,
@@ -59,7 +95,16 @@ export class S3ODM {
       body,
     });
 
-    const reply = await fetch(url, request as any);
+    const controller = new AbortController();
+    request.signal = controller.signal;
+
+    const timeout = setTimeout(
+      () => controller.abort(),
+      Math.max(1, this.config.request.timeout),
+    );
+    const reply = await fetch(url, request as RequestInit);
+
+    clearTimeout(timeout);
 
     if (reply.status === okCode) {
       return reply;
@@ -166,10 +211,7 @@ export class S3ODM {
       const xml = await reply.text();
       matches = 0;
 
-      let output = '';
-      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {
-        output += decoder.decode(outputChunk);
-      });
+      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {});
 
       rewriter.on('key', {
         text(chunk) {
@@ -229,10 +271,7 @@ export class S3ODM {
       const xml = await reply.text();
       matches = 0;
 
-      let output = '';
-      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {
-        output += decoder.decode(outputChunk);
-      });
+      const rewriter = new HTMLRewriter((outputChunk: BufferSource) => {});
 
       rewriter.on('Prefix', {
         text(chunk) {
@@ -286,35 +325,11 @@ const createCertifier = ({
 }: ICertifierConfig) => {
   const encoder = new TextEncoder();
   const cache = new Map<string, ArrayBuffer>();
-  const UNSIGNABLE_HEADERS = [
-    'authorization',
-    'content-type',
-    'content-length',
-    'user-agent',
-    'presigned-expires',
-    'expect',
-    'x-amzn-trace-id',
-    'range',
-    'connection',
-  ];
-
-  const buff2hex = (buffer: ArrayBuffer) => {
-    return Array.prototype.map
-      .call(new Uint8Array(buffer), x => ('0' + x.toString(16)).slice(-2))
-      .join('');
-  };
 
   const sha256encode = async (content: any) => {
     return (webcrypto as any).subtle.digest(
       'SHA-256',
       typeof content === 'string' ? encoder.encode(content) : content,
-    );
-  };
-
-  const encodeRFC3986 = (urlEncodedStr: string) => {
-    return urlEncodedStr.replace(
-      /[!'()*]/g,
-      c => '%' + c.charCodeAt(0).toString(16).toUpperCase(),
     );
   };
 
